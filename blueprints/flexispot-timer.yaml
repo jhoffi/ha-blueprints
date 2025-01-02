@@ -1,0 +1,155 @@
+blueprint:
+  name: Flexispot Timer
+  description: A blueprint to control a Flexispot standing desk with a timer which notifies you when you sit too long. Please note that you need to trigger the actions manually once on first use.
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    desk_height_sensor:
+      name: Desk Height Sensor
+      description: The sensor that reports the height of the desk.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+            - device_class: distance
+    timer_entity:
+      name: Timer Entity
+      description: The timer entity to use for the timer.
+      selector:
+        entity:
+          domain: timer
+    max_sitting_time:
+      name: Max Sitting Time
+      description: The maximum time you want to sit before being notified.
+      selector:
+        duration:
+    desk_lights:
+      name: Lights
+      description: The light to turn on when the timer finishes. The lights will be restored to their previous state after the desk is raised.
+      selector:
+        target:
+          entity:
+            domain: light
+    warning_color:
+      name: Color
+      description: The color to set the light to when the timer finishes.
+      default: [237, 51, 59]
+      selector:
+        color_rgb:
+    additional_options:
+      name: Additional Options
+      icon: mdi:plus
+      collapsed: true
+      input:
+        additional_triggers:
+          name: Additional Triggers
+          description: Additional triggers to start the timer.
+          default: []
+          selector:
+            trigger:
+        additional_conditions:
+          name: Additional Conditions
+          description: Additional conditions to check before starting the timer.
+          default: []
+          selector:
+            condition:
+        additional_warning_actions:
+          name: Additional Warning Actions
+          description: Additional actions to perform when you sit too long.
+          default: []
+          selector:
+            action:
+        additional_resolved_actions:
+          name: Additional Resolved Actions
+          description: Additional actions to perform when you stand up.
+          default: []
+          selector:
+            action:
+        snapshot_scene_id:
+          name: Snapshot Scene Name
+          description: The id of the scene to create when the timer finishes. This scene will be used to restore the lights to their previous state and will be deleted after the lights are restored.
+          default: temp_scene
+          selector:
+              text:
+
+variables:
+  desk_lights: !input desk_lights
+  # Get all entities from the desk_lights target
+  # https://raw.githubusercontent.com/emoses/homeassistant-blueprints/master/low-battery.yaml
+  desk_light_entities: >
+    {%- set ns = namespace(ret=[]) %}
+    {%- for key in ['device', 'area', 'entity', 'label'] %}
+      {%- set items = desk_lights.get(key ~ '_id', [])  %}
+      {%- if items %}
+        {%- set items = [ items ] if items is string else items %}
+        {%- set items = items if key == 'entity' else items | map(key ~ '_entities') | sum(start=[]) %}
+        {%- set ns.ret = ns.ret + [ items ] %}
+      {%- endif %}
+    {%- endfor %}
+    {{ ns.ret | sum(start=[]) }}
+
+trigger:
+  - triggers:
+    - trigger: state
+      entity_id: !input desk_height_sensor
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 1 # debounce time
+    - trigger: homeassistant
+      event: start
+  - triggers: !input additional_triggers
+conditions: []
+actions:
+  - if:
+      - alias: Desk in sitting position & PC is on
+        condition: and
+        conditions:
+          - condition: numeric_state
+            entity_id: !input desk_height_sensor
+            below: 100
+          - condition: and
+            conditions: !input additional_conditions
+    then:
+      - if:
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: !input timer_entity
+                state: active
+        then:
+          - action: timer.start
+            metadata: {}
+            data:
+              duration: !input max_sitting_time
+            target:
+              entity_id: !input timer_entity
+        alias: Start timer if not active
+      - wait_for_trigger:
+          - trigger: event
+            event_type: timer.finished
+            event_data:
+              entity_id: !input timer_entity
+        alias: Wait for timer to finish
+      - action: scene.create
+        data:
+          scene_id: !input snapshot_scene_id
+          snapshot_entities: "{{ desk_light_entities}}"
+      - action: light.turn_on
+        data:
+          rgb_color: !input warning_color
+        target: !input desk_lights
+      - sequence: !input additional_warning_actions
+    else:
+      - action: timer.cancel
+        target:
+          entity_id: !input timer_entity
+      - action: scene.turn_on
+        target:
+          entity_id: scene.temp_scene
+      - action: scene.delete
+        target:
+          entity_id: scene.temp_scene
+      - sequence: !input additional_resolved_actions
+mode: restart
