@@ -1,6 +1,6 @@
 blueprint:
   name: Flexispot Timer
-  description: A blueprint to control a Flexispot standing desk with a timer which notifies you when you sit too long. Please note that you need to trigger the actions manually once on first use.
+  description: A blueprint to control a Flexispot standing desk with a timer which notifies you when you sit too long.
   author: Jonas Hoffmann
   domain: automation
   homeassistant:
