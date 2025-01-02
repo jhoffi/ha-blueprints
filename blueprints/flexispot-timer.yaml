@@ -1,6 +1,7 @@
 blueprint:
   name: Flexispot Timer
   description: A blueprint to control a Flexispot standing desk with a timer which notifies you when you sit too long. Please note that you need to trigger the actions manually once on first use.
+  author: Jonas Hoffmann
   domain: automation
   homeassistant:
     min_version: 2024.6.0
@@ -99,6 +100,13 @@ trigger:
         seconds: 1 # debounce time
     - trigger: homeassistant
       event: start
+    - trigger: template
+      value_template: |-
+        {% if this.entity_id is defined %}
+          {{is_state(this.entity_id, "on")}}
+        {% else %}
+          false
+        {% endif %}
   - triggers: !input additional_triggers
 conditions: []
 actions:
