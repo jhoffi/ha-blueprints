@@ -156,9 +156,9 @@ actions:
           entity_id: !input timer_entity
       - action: scene.turn_on
         target:
-          entity_id: scene.temp_scene
-      - action: scene.delete
+          entity_id: !input snapshot_scene_id
+      - action: !input snapshot_scene_id
         target:
-          entity_id: scene.temp_scene
+          entity_id: !input snapshot_scene_id
       - sequence: !input additional_resolved_actions
 mode: restart
