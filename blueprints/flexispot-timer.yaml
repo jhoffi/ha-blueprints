@@ -25,6 +25,16 @@ blueprint:
       description: The maximum time you want to sit before being notified.
       selector:
         duration:
+    min_standing_height:
+      name: Min Standing Height
+      description: The minimum height the desk needs to be at to be considered standing.
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 200
+          step: 1
+          unit_of_measurement: cm
     desk_lights:
       name: Lights
       description: The light to turn on when the timer finishes. The lights will be restored to their previous state after the desk is raised.
@@ -119,7 +129,7 @@ actions:
         conditions:
           - condition: numeric_state
             entity_id: !input desk_height_sensor
-            below: 100
+            below: !input min_standing_height
           - condition: and
             conditions: !input additional_conditions
     then:
